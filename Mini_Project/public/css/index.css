@@ -1,0 +1,60 @@
+/* General styles for index page */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f9f9f9;
+    text-align: center;
+    margin: 0;
+}
+
+header {
+    background-color: #78a0e0;
+    padding: 1.5rem;
+    color: white;
+    text-align: center;
+}
+
+nav {
+    display: flex;
+    justify-content: space-between;
+    padding: 1rem;
+    background-color: #333;
+    color: white;
+    border-radius: 10px;
+}
+
+nav a {
+    color: white;
+    text-decoration: none;
+    padding: 0.5rem 2rem;
+    border-radius: 10px;
+    transition: background 0.5s;
+}
+
+nav a:hover {
+    background-color: #6b98e0;
+}
+
+h1 {
+    font-size: 3rem;
+}
+
+main {
+    padding: 2rem;
+}
+
+button {
+    padding: 0.5rem 1rem;
+    margin: 0.6rem;
+    background-color: #333;
+    color: white;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    transition: background-color 0.3s, color 0.3s;
+    width: 92%;
+}
+
+button:hover {
+    background-color: #6b98e0;
+}
