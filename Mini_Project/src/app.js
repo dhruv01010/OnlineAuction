@@ -25,24 +25,18 @@ app.set("view engine", "hbs");
 app.set("views", views_path);
 hbs.registerPartials(partials_path);
 
-app.get('/', (req, res) => {
-  res.render("index");
-});
-
-// Set up the session middleware
 app.use(
   expressSession({
-    secret: process.env.SESSION_SECRET || 'your-secret-key',  // Session secret key for encryption
-    resave: false,  // Don't save session if it hasn't been modified
-    saveUninitialized: true,  // Create a session for every user, even if not logged in
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
+    resave: false,
+    saveUninitialized: true,
     store: MongoStore.create({
-      mongoUrl: 'mongodb+srv://user1000:user111@onlineauction.9paem.mongodb.net/OnlineAuction',  // Store sessions in MongoDB
+      mongoUrl: 'mongodb://localhost:27017/my_db?ssl=false',
       collectionName: 'sessions',
     }),
-    cookie: { maxAge: 1000 * 60 * 1 },
+    cookie: { maxAge: 1000 * 60 * 60 }, // 1 hour session expiry
   })
 );
-
 
 const isAuthenticated = (req, res, next) => {
   if (req.session.user) {
@@ -52,9 +46,15 @@ const isAuthenticated = (req, res, next) => {
   }
 };
 
+// Middleware to make user session available in all templates
 app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
   next();
+});
+
+// Route for home page
+app.get("/", (req, res) => {
+  res.render("index", { user: req.session.user });
 });
 
 app.get("/index", (req, res) => {
@@ -66,51 +66,58 @@ app.get("/index", isAuthenticated, (req, res) => {
   res.render("index");
 });
 
+// Ensure that "/home" also redirects properly with the user session
+app.get("/home", (req, res) => {
+  res.render("index", { user: req.session.user });
+});
+
+// Registration Route
 app.get("/register", (req, res) => {
   res.render("register");
 });
 
 app.post("/register", async (req, res) => {
   try {
-      const { name, email, password } = req.body;
+    const { name, email, password } = req.body;
 
-      // Basic email format validation
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-          return res.status(400).send("Invalid email format");
-      }
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).send("Invalid email format");
+    }
 
-      // Third-party email validation
-      const apiKey = "4c93291a2b1e4121a4cf0a4173d97845"; // Replace with your actual API key
-      //https://app.abstractapi.com/api/email-validation/tester     <-- link for email validation
+    // Third-party email validation
+    const apiKey = "4c93291a2b1e4121a4cf0a4173d97845"; // Replace with your actual API key
+    //https://app.abstractapi.com/api/email-validation/tester     <-- link for email validation
 
-      const validationUrl = `https://emailvalidation.abstractapi.com/v1/?api_key=${apiKey}&email=${email}`;
+    const validationUrl = `https://emailvalidation.abstractapi.com/v1/?api_key=${apiKey}&email=${email}`;
 
-      const response = await axios.get(validationUrl);
-      console.log("API Response:", response.data); // Debug log
+    const response = await axios.get(validationUrl);
+    console.log("API Response:", response.data); // Debug log
 
-      if (response.data.deliverability !== "DELIVERABLE") {
-          return res.status(400).send("Invalid or undeliverable email address.");
-      }
+    if (response.data.deliverability !== "DELIVERABLE") {
+      return res.status(400).send("Invalid or undeliverable email address.");
+    }
 
-      // Check if the email already exists
-      const existingUser = await Register.findOne({ email });
-      if (existingUser) {
-          return res.status(409).send("Email already registered");
-      }
+    // Check if the email already exists
+    const existingUser = await Register.findOne({ email });
+    if (existingUser) {
+      return res.status(409).send("Email already registered");
+    }
 
-      // Create and save the new user
-      const newUser = new Register({ name, email, password });
-      await newUser.save();
+    // Create and save the new user
+    const newUser = new Register({ name, email, password });
+    await newUser.save();
 
-      req.session.user = newUser; // Auto-login after registration
-      res.redirect("/login");
+    req.session.user = newUser; // Auto-login after registration
+    res.redirect("/login");
   } catch (err) {
-      console.error("Error during registration:", err.response ? err.response.data : err);
-      res.status(500).send("Server error during registration");
+    console.error("Error during registration:", err.response ? err.response.data : err);
+    res.status(500).send("Server error during registration");
   }
 });
 
+// Login Route
 app.get("/login", (req, res) => {
   res.render("login");
 });
@@ -118,17 +125,16 @@ app.get("/login", (req, res) => {
 app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
-
     const user = await Register.findOne({ email });
 
-    if (user && user.password === password) {
-      // Store user information in the session after successful login
-      req.session.user = user;  // Store the user object in the session
-
-      return res.redirect("/index");  // Redirect to the dashboard
-    } else {
-      res.status(401).send("Invalid email or password");
+    if (!user || user.password !== password) {
+      return res.render("login", {
+        errorMessage: "Invalid email or password",
+        email, // Keep email entered by user
+      });
     }
+    req.session.user = user;
+    return res.redirect("/index");
   } catch (err) {
     res.status(500).send("Server error during login");
   }
@@ -142,26 +148,26 @@ app.post("/forgot_password", async (req, res) => {
   try {
     const { name, email, newpassword, confirmpassword } = req.body;
 
-    const passwordRegex = /^(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{6,10}$/;
-
-    if (!passwordRegex.test(newpassword)) {
-      return res.status(400).send("Password must be 6-8 characters long and include at least one special character.");
-    }
-
-    if (newpassword !== confirmpassword) {
-      return res.status(400).send("Passwords do not match.");
-    }
-
     const user = await Register.findOne({ name, email });
-    if (!user) {
-      return res.status(404).send("No user found with this username and email.");
-    }
 
-    // Update only the password field
+    if (!user) {
+      return res.render("forgot_password", {
+        errorMessage: "Invalid email or username",
+        name,
+        email,
+      });
+    }
+    if (newpassword !== confirmpassword) {
+      return res.render("forgot_password", {
+        errorMessage: "Passwords do not match",
+        name,
+        email,
+      });
+    }
     user.password = newpassword;
     await user.save();
 
-    res.status(200).redirect("/login");
+    return res.redirect("/login");
   } catch (err) {
     console.error(err);
     res.status(500).send("Error processing password reset.");
@@ -170,73 +176,6 @@ app.post("/forgot_password", async (req, res) => {
 
 app.get("/passwordless_login", (req, res) => {
   res.render("passwordless_login");
-});
-
-// OTP storage (in-memory for simplicity)
-const otpStore = {};
-
-// Passwordless login - Send OTP
-app.post("/send-otp", async (req, res) => {
-    try {
-        const { email } = req.body;
-        const user = await Register.findOne({ email });
-
-        if (!user) {
-            return res.status(404).send("Email not registered");
-        }
-
-        const otp = otpGenerator.generate(6, { upperCaseAlphabets: false, specialChars: false });
-        otpStore[email] = otp;
-
-        // Configure nodemailer
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: 'your-email@gmail.com', // Replace with your email
-                pass: 'your-email-password'   // Replace with your email password or app password
-            }
-        });
-
-        await transporter.sendMail({
-            from: 'your-email@gmail.com',
-            to: email,
-            subject: 'Your Login Code',
-            text: `Your login code is: ${otp}`
-        });
-
-        res.status(200).send("OTP sent to your email");
-    } catch (err) {
-        console.error(err);
-        res.status(500).send("Error sending OTP");
-    }
-});
-
-// Passwordless login - Verify OTP
-app.post("/verify-otp", async (req, res) => {
-    try {
-        const { email, otp } = req.body;
-        if (otpStore[email] && otpStore[email] === otp) {
-            const user = await Register.findOne({ email });
-            if (user) {
-                req.session.user = user;
-                delete otpStore[email];
-                return res.redirect("/index");
-            }
-        }
-        res.status(401).send("Invalid OTP or email");
-    } catch (err) {
-        console.error(err);
-        res.status(500).send("Error verifying OTP");
-    }
-});
-
-app.post("/logout", (req, res) => {
-  req.session.destroy((err) => {  // Destroy the session
-    if (err) {
-      return res.status(500).send("Error logging out");
-    }
-    res.redirect("/");  // Redirect to the homepage or login page
-  });
 });
 
 app.get("/auctions", async (req, res) => {
@@ -253,8 +192,8 @@ app.get("/auctions", async (req, res) => {
 app.post("/bid/:id", (req, res) => {
   const { id } = req.params;
   const { bidAmount } = req.body;
-  console.log(`Bid of $${bidAmount} placed on auction item with ID ${id}`);
-  res.redirect("/auctions");
+console.log(`Bid of $${bidAmount} placed on auction item with ID ${id}`);
+res.redirect("/auctions");
 });
 
 // Login route (sets user session)
@@ -264,14 +203,15 @@ app.post("/login", (req, res) => {
   res.redirect("/auctions");
 });
 
-// Logout route (destroys session)
+// Logout Route
 app.post("/logout", (req, res) => {
   req.session.destroy((err) => {
-    if (err) console.log(err);
-    res.redirect("/"); // Redirect after logout
+    if (err) {
+      return res.status(500).send("Error logging out");
+    }
+    res.redirect("/");
   });
 });
-
 
 const start = async () => {
   try {
