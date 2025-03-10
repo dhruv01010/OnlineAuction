@@ -4,25 +4,26 @@ const step1 = document.querySelector('.step1'),
   email1 = document.getElementById('email1'),
   verifyEmail = document.getElementById('verifyEmail'),
   inputs = document.querySelectorAll(".otp-group input"),
-  nextBtn1 = document.querySelector(".nextBtn1"),
+  nextBtn = document.querySelector(".nextBtn"),
+  // resendOTP = document.getElementById("resendOTP"),
   verifyBtn = document.querySelector(".verifyBtn");
-let OTP = generateOTP();
 
+let OTP;
 window.addEventListener('load', () => {
-  emailjs.init("HeYGtr4rRv-vRGrXz");
   step1.style.display = 'block';
   step2.style.display = 'none';
   step3.style.display = 'none';
-  nextBtn1.classList.add('disabled');
+  nextBtn.classList.add('disabled');
   verifyBtn.classList.add('disabled');
+  emailjs.init("pwAuFiSoSJ4SngEb6");
 });
 
 const validateEmail = (email) => {
   let re = /\S+@\S+\.\S+/;
   if (re.test(email)) {
-    nextBtn1.classList.remove("disabled");
+    nextBtn.classList.remove("disabled");
   } else {
-    nextBtn1.classList.add("disabled");
+    nextBtn.classList.add("disabled");
   }
 }
 
@@ -47,9 +48,10 @@ inputs.forEach((input) => {
 
 const service_id = "service_w8zdkmr";
 const template_id = "template_altu5ne";
-nextBtn1.addEventListener('click', () => {
+nextBtn.addEventListener('click', (event) => {
+  event.preventDefault();
   OTP = generateOTP();
-  nextBtn1.innerHTML = "&#9889; Sending OTP";
+  nextBtn.innerHTML = "&#9889; Sending OTP";
   let templateParameter = {
     from_name: "OnlineAuction Team",
     OTP: OTP,
@@ -59,18 +61,20 @@ nextBtn1.addEventListener('click', () => {
   emailjs.send(service_id, template_id, templateParameter).then(
     (res) => {
       console.log(res);
-      nextBtn1.innerHTML = "Next &rarr;";
+      nextBtn.innerHTML = "Next &rarr;";
       step1.style.display = "none";
       step2.style.display = "block";
       step3.style.display = "none";
     },
     (err) => {
       console.log(err);
+      alert("Failed to send OTP. Try again.");
     }
   );
 });
 
-verifyBtn.addEventListener('click', () => {
+verifyBtn.addEventListener('click', (event) => {
+  event.preventDefault();
   let values = "";
   inputs.forEach((input) => {
     values += input.value;
@@ -79,6 +83,10 @@ verifyBtn.addEventListener('click', () => {
     step1.style.display = "none";
     step2.style.display = "none";
     step3.style.display = "block";
+    
+    setTimeout(() => {
+      window.location.href = "/index";
+    }, 2000);
   } else {
     verifyBtn.classList.add("error-shake");
     setTimeout(() => {
@@ -86,3 +94,9 @@ verifyBtn.addEventListener('click', () => {
     }, 1000);
   }
 });
+
+function changeEmail() {
+  step1.style.display = "block";
+  step2.style.display = "none";
+  step3.style.display = "none";
+}
