@@ -5,7 +5,6 @@ const step1 = document.querySelector('.step1'),
   verifyEmail = document.getElementById('verifyEmail'),
   inputs = document.querySelectorAll(".otp-group input"),
   nextBtn = document.querySelector(".nextBtn"),
-  // resendOTP = document.getElementById("resendOTP"),
   verifyBtn = document.querySelector(".verifyBtn");
 
 let OTP;
