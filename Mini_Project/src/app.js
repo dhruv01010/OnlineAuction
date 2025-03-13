@@ -5,8 +5,6 @@ const hbs = require('hbs');
 const app = express();
 const connectDB = require('./db/conn');
 const Register = require('./models/register');
-const nodemailer = require("nodemailer");
-const otpGenerator = require('otp-generator');
 require('dotenv').config();
 const MongoStore = require("connect-mongo");
 const axios = require('axios');
@@ -55,10 +53,6 @@ app.use((req, res, next) => {
 // Route for home page
 app.get("/", (req, res) => {
   res.render("index", { user: req.session.user });
-});
-
-app.get("/index", (req, res) => {
-  res.render("index");  // Render the index page without authentication check
 });
 
 // Use the middleware for protected routes
@@ -127,16 +121,19 @@ app.post("/login", async (req, res) => {
     const { email, password } = req.body;
     const user = await Register.findOne({ email });
 
-    if (!user || user.password !== password) {
-      return res.render("login", {
-        errorMessage: "Invalid email or password",
-        email, // Keep email entered by user
-      });
+    if (!user) {
+      return res.json({ success: false, message: "Invalid email or password" });
     }
+
     req.session.user = user;
-    return res.redirect("/index");
+    if (user.password === password) {
+      return res.redirect("/index");
+    }else{
+      return res.json({ success: true });
+    }
   } catch (err) {
-    res.status(500).send("Server error during login");
+    console.error("Server error during login:", err);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
@@ -178,6 +175,10 @@ app.get("/passwordless_login", (req, res) => {
   res.render("passwordless_login");
 });
 
+app.get("/reset_password", (req, res) => {
+  res.render("reset_password");
+});
+
 app.get("/auctions", async (req, res) => {
   const auctions = [
     { _id: "1", title: "Antique Vase", description: "18th century antique vase.", currentBid: 150, image: "/imgs/vase.jpg" },
@@ -192,14 +193,7 @@ app.get("/auctions", async (req, res) => {
 app.post("/bid/:id", (req, res) => {
   const { id } = req.params;
   const { bidAmount } = req.body;
-console.log(`Bid of $${bidAmount} placed on auction item with ID ${id}`);
-res.redirect("/auctions");
-});
-
-// Login route (sets user session)
-app.post("/login", (req, res) => {
-  const { username } = req.body;
-  req.session.user = { username }; // Storing user data in session
+  console.log(`Bid of $${bidAmount} placed on auction item with ID ${id}`);
   res.redirect("/auctions");
 });
 
