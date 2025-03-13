@@ -31,19 +31,30 @@ const generateOTP = () => {
   return otp;
 }
 
-inputs.forEach((input) => {
-  input.addEventListener("keyup", function (e) {
-    if (this.value.length >= 1) {
-      e.target.value = e.target.value.substr(0, 1);
+inputs.forEach((input, index) => {
+  input.addEventListener("input", (e) => {
+    const currentInput = e.target;
+    const nextInput = inputs[index + 1];
+
+    // Move to next input if a number is entered
+    if (currentInput.value.length === 1 && nextInput) {
+      nextInput.focus();
     }
 
-    if (inputs[0].value != "" && inputs[1].value != "" && inputs[2].value != "" && inputs[3].value != "") {
-      verifyBtn.classList.remove("disabled");
-    } else {
-      verifyBtn.classList.add("disabled");
+    // Move to the verify button if the last input is filled
+    if (index === inputs.length - 1 && currentInput.value.length === 1) {
+      verifyBtn.focus();
+    }
+  });
+
+  // Move to the previous input on backspace
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Backspace" && input.value.length === 0 && index > 0) {
+      inputs[index - 1].focus();
     }
   });
 });
+
 
 const service_id = "service_w8zdkmr";
 const template_id = "template_altu5ne";
@@ -75,17 +86,35 @@ nextBtn.addEventListener('click', (event) => {
 verifyBtn.addEventListener('click', (event) => {
   event.preventDefault();
   let values = "";
+
   inputs.forEach((input) => {
     values += input.value;
   });
+
   if (values == OTP) {
     step1.style.display = "none";
     step2.style.display = "none";
     step3.style.display = "block";
     
     setTimeout(() => {
-      window.location.href = "/index";
+      fetch("/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: email1.value }),
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          window.location.href = "/index";
+        } else {
+          alert("Invalid email or password");
+        }
+      })
+      .catch(error => console.error("Error during login:", error));
     }, 2000);
+    
   } else {
     verifyBtn.classList.add("error-shake");
     setTimeout(() => {
