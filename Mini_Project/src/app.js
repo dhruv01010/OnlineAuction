@@ -175,10 +175,6 @@ app.get("/passwordless_login", (req, res) => {
   res.render("passwordless_login");
 });
 
-app.get("/reset_password", (req, res) => {
-  res.render("reset_password");
-});
-
 app.get("/auctions", async (req, res) => {
   const auctions = [
     { _id: "1", title: "Antique Vase", description: "18th century antique vase.", currentBid: 150, image: "/imgs/vase.jpg" },
